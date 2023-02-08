@@ -5,6 +5,7 @@ pipeline {
         skipDefaultCheckout true
     }
 
+    // 슬랙 메시지 색상 및 이미지 저장소의 주소 전역 변수로 지정
     environment {
         SLACK_SUCCESS = "#2C953C"
         SLACK_UNSTABLE = "#FFFF00"
@@ -47,6 +48,7 @@ pipeline {
 
             steps {
                 echo '>>> Checkout Dockerfile <<<'
+                
                 dir('') {
                 git credentialsId: 'bella-git',
                     branch: 'main',
@@ -54,7 +56,6 @@ pipeline {
                 }
                 stash includes: 'backend/Dockerfile',
                       name: 'docker'
-
 
                 echo '>>> Checkout Spring Boot App <<<'
                 dir('') {

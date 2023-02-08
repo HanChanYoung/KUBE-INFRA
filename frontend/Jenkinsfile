@@ -1,0 +1,165 @@
+pipeline {
+    agent any
+
+    // Checkout 스테이지 추가했으므로 DefaultCheckout 스킵
+    options {
+        skipDefaultCheckout true
+    }
+
+    // 슬랙 메시지 색상 전역 변수로 지정
+    environment {
+        SLACK_SUCCESS = "#2C953C"
+        SLACK_UNSTABLE = "#FFFF00"
+        SLACK_FAILURE = "#F01717"
+    }
+
+    stages {
+        stage('Initialized') {
+            agent any
+
+            steps {
+                echo '>>> Initialize Pipeline <<<'
+            }
+
+            post {
+                failure {
+                    slackSend (
+                        color: SLACK_FAILURE,
+                        message: "파이프라인 ${env.BUILD_TAG} 초기화 실패\n${env.BRANCH_NAME}\n${env.BUILD_URL}"
+                    )
+                }
+                success {
+                    slackSend (
+                        color: SLACK_SUCCESS,
+                        message: "파이프라인 ${env.BUILD_TAG} 초기화 성공\n${env.BRANCH_NAME}\n${env.BUILD_URL}"
+                    )
+                }
+            }
+        }
+
+        stage('Checkout') {
+            agent any
+
+            tools {
+                git 'Default'
+            }
+
+            steps {
+                echo '>>> Checkout nginx.conf <<<'
+                dir('') {
+                git credentialsId: 'bella-git',
+                    branch: 'main',
+                    url: 'http://172.16.2.161:9090/teamkube/infra.git'
+                }
+                stash includes: 'frontend/nginx/**',
+                    name: 'nginx'
+
+                echo '>>> Checkout React App <<<'
+                dir('') {
+                git credentialsId: 'bella-git',
+                    branch: 'test',
+                    url: 'http://172.16.2.161:9090/teamkube/fe.git'
+                }
+
+                echo '>>> Merge Nginx to workspace <<<'
+                unstash 'nginx'
+                sh 'mv frontend/nginx/* ./'
+
+            }
+
+            post {
+                failure {
+                    slackSend (
+                        color: SLACK_FAILURE,
+                        message: "레포지토리 클론 실패"
+                    )
+                }
+                success {
+                    slackSend (
+                        color: SLACK_SUCCESS,
+                        message: "레포지토리 클론 성공"
+                    )
+                }
+            }
+        }
+
+        stage('Build React App') {
+            agent {
+                docker {
+                    image 'node:18.12-alpine'
+                }
+            }
+
+            steps {
+                echo '>>> Build React App <<<'
+                sh 'npm install --force'
+                sh 'DISABLE_ESLINT_PLUGIN=true npm run build'
+            }
+            
+            post {
+                failure {
+                    slackSend (
+                        color: SLACK_FAILURE,
+                        message: "리액트 빌드 실패"
+                    )
+                }
+                success {
+                    slackSend (
+                        color: SLACK_SUCCESS,
+                        message: "리액트 빌드 성공"
+                    )
+
+                    stash includes: 'build/**',
+                        name: 'build'
+                }
+            }
+        }
+
+        stage('Deploy') {
+            agent any
+
+            steps {
+                echo '>>> Build 파일 배포 (nfs로 이동) <<<'
+                sh 'mv build /kube-fe'
+            }
+
+            post {
+                failure {
+                    slackSend (
+                        color: SLACK_FAILURE,
+                        message: "배포 실패"
+                    )
+                }
+                success {
+                    slackSend (
+                        color: SLACK_SUCCESS,
+                        message: "배포 성공"
+                    )
+                }
+            }
+        }
+
+        stage('End') {
+            agent any
+
+            steps {
+                echo '>>> End Pipeline <<<'
+            }
+            
+            post {
+                failure {
+                    slackSend (
+                        color: SLACK_FAILURE,
+                        message: "파이프라인 실패"
+                    )
+                }
+                success {
+                    slackSend (
+                        color: SLACK_SUCCESS,
+                        message: "파이프라인 성공"
+                    )
+                }
+            }
+        }
+    }
+}

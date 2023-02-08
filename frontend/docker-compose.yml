@@ -1,0 +1,23 @@
+version: '3'
+services:
+
+ jenkins:
+    image: "jenkins/jenkins:lts-jdk11"
+    container_name: jenkins99
+    volumes:
+        - /usr/bin/docker:/usr/bin/docker
+        - /var/run/docker.sock:/var/run/docker.sock
+        - ~/jenkins-data:/var/jenkins_home
+        - nfs_source:/kube-fe
+    ports:
+        - "8181:8080"
+    privileged: true
+    user: root
+
+volumes:
+  nfs_source:
+    driver: local
+    driver_opts:
+      type: nfs
+      o: addr=172.16.17.227,nfsvers=4
+      device: ":/kube-src"
