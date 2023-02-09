@@ -84,11 +84,7 @@ pipeline {
         }
 
         stage('Build React App') {
-            agent {
-                docker {
-                    image 'node:18.12-alpine'
-                }
-            }
+            agent any
 
             steps {
                 echo '>>> Build React App <<<'
