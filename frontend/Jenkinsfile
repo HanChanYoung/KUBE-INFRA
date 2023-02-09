@@ -47,18 +47,18 @@ pipeline {
             steps {
                 echo '>>> Checkout nginx.conf <<<'
                 dir('') {
-                git credentialsId: 'bella-git',
-                    branch: 'main',
-                    url: 'http://172.16.2.161:9090/teamkube/infra.git'
+                git credentialsId: 'kube-git',
+                    branch: 'develop',
+                    url: 'http://172.16.65.40:9090/kube/kube-infra.git'
                 }
                 stash includes: 'frontend/nginx/**',
                     name: 'nginx'
 
                 echo '>>> Checkout React App <<<'
                 dir('') {
-                git credentialsId: 'bella-git',
-                    branch: 'test',
-                    url: 'http://172.16.2.161:9090/teamkube/fe.git'
+                git credentialsId: 'kube-git',
+                    branch: 'FE/CAMP-43',
+                    url: 'http://172.16.65.40:9090/kube/kube-fe.git'
                 }
 
                 echo '>>> Merge Nginx to workspace <<<'

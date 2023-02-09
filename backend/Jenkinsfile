@@ -50,18 +50,18 @@ pipeline {
                 echo '>>> Checkout Dockerfile <<<'
                 
                 dir('') {
-                git credentialsId: 'bella-git',
-                    branch: 'main',
-                    url: 'http://172.16.2.161:9090/teamkube/infra.git'
+                git credentialsId: 'kube-git',
+                    branch: 'develop',
+                    url: 'http://172.16.65.40:9090/kube/infra.git'
                 }
                 stash includes: 'backend/Dockerfile',
                       name: 'docker'
 
                 echo '>>> Checkout Spring Boot App <<<'
                 dir('') {
-                git credentialsId: 'bella-git',
+                git credentialsId: 'kube-git',
                     branch: 'develop',
-                    url: 'http://172.16.2.161:9090/teamkube/be.git'
+                    url: 'http://172.16.65.40:9090/kube/kube-be.git'
                 }
             }
 
@@ -174,7 +174,7 @@ pipeline {
             steps {
                 echo '>>> Login <<<'
                 withCredentials([[$class: 'UsernamePasswordMultiBinding',
-                     credentialsId: 'bella-docker',
+                     credentialsId: 'kube-docker',
                      usernameVariable: 'DOCKER_USER_ID',
                      passwordVariable: 'DOCKER_USER_PASSWORD']]) {
                         sh "docker login ${REGISTRY_BASE} -u ${DOCKER_USER_ID} -p ${DOCKER_USER_PASSWORD}"
@@ -235,17 +235,23 @@ pipeline {
             steps {
                 sshagent(credentials: ['kube_key']) {
                     // 최신 컨테이너 삭제
-                    //sh "ssh -o StrictHostKeyChecking=no ubuntu@172.16.0.39 'sudo docker rm -f backend-${env.BRANCH_NAME}'"
+                    // sh "ssh -o StrictHostKeyChecking=no ubuntu@172.16.65.68 'sudo docker rm -f backend-${env.BRANCH_NAME}'"
+                    // sh "ssh -o StrictHostKeyChecking=no ubuntu@172.16.66.244 'sudo docker rm -f backend-${env.BRANCH_NAME}'"
                     // 최신 이미지 삭제
-                    sh "ssh -o StrictHostKeyChecking=no ubuntu@172.16.0.39 'sudo docker rmi -f ${env.REGISTRY_BASE}/${env.REGISTRY_REPO}/backend-${env.BRANCH_NAME}:latest'"
+                    // sh "ssh -o StrictHostKeyChecking=no ubuntu@172.16.65.68 'sudo docker rmi -f ${env.REGISTRY_BASE}/${env.REGISTRY_REPO}/backend-${env.BRANCH_NAME}:latest'"
+                    // sh "ssh -o StrictHostKeyChecking=no ubuntu@172.16.66.244 'sudo docker rmi -f ${env.REGISTRY_BASE}/${env.REGISTRY_REPO}/backend-${env.BRANCH_NAME}:latest'"
                     // 최신 이미지 PULL
-                    sh "ssh -o StrictHostKeyChecking=no ubuntu@172.16.0.39 'sudo docker pull ${env.REGISTRY_BASE}/${env.REGISTRY_REPO}/backend-${env.BRANCH_NAME}:latest'"
+                    sh "ssh -o StrictHostKeyChecking=no ubuntu@172.16.65.68 'sudo docker pull ${env.REGISTRY_BASE}/${env.REGISTRY_REPO}/backend-${env.BRANCH_NAME}:latest'"
+                    sh "ssh -o StrictHostKeyChecking=no ubuntu@172.16.66.244 'sudo docker pull ${env.REGISTRY_BASE}/${env.REGISTRY_REPO}/backend-${env.BRANCH_NAME}:latest'"
                     // 이미지 확인
-                    sh "ssh -o StrictHostKeyChecking=no ubuntu@172.16.0.39 'sudo docker images'"
+                    sh "ssh -o StrictHostKeyChecking=no ubuntu@172.16.65.68 'sudo docker images'"
+                    sh "ssh -o StrictHostKeyChecking=no ubuntu@172.16.66.244 'sudo docker images'"
                     // 최신 이미지 RUN
-                    sh "ssh -o StrictHostKeyChecking=no ubuntu@172.16.0.39 'sudo docker run -d --name backend-${env.BRANCH_NAME} -p 8081:8081 ${env.REGISTRY_BASE}/${env.REGISTRY_REPO}/backend-${env.BRANCH_NAME}:latest'"
+                    sh "ssh -o StrictHostKeyChecking=no ubuntu@172.16.65.68 'sudo docker run -d --name backend-${env.BRANCH_NAME} -p 8081:8081 ${env.REGISTRY_BASE}/${env.REGISTRY_REPO}/backend-${env.BRANCH_NAME}:latest'"
+                    sh "ssh -o StrictHostKeyChecking=no ubuntu@172.16.66.244 'sudo docker run -d --name backend-${env.BRANCH_NAME} -p 8081:8081 ${env.REGISTRY_BASE}/${env.REGISTRY_REPO}/backend-${env.BRANCH_NAME}:latest'"
                     // 컨테이너 확인
-                    sh "ssh -o StrictHostKeyChecking=no ubuntu@172.16.0.39 'sudo docker ps'"
+                    sh "ssh -o StrictHostKeyChecking=no ubuntu@172.16.65.68 'sudo docker ps'"
+                    sh "ssh -o StrictHostKeyChecking=no ubuntu@172.16.66.244 'sudo docker ps'"
                 }
             }
 
