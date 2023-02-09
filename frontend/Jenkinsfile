@@ -120,6 +120,7 @@ pipeline {
 
             steps {
                 echo '>>> Build 파일 배포 (nfs로 이동) <<<'
+                sh 'rm -rf /kube-fe/build'
                 sh 'mv build /kube-fe'
             }
 
