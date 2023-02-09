@@ -278,13 +278,13 @@ pipeline {
                 failure {
                     slackSend (
                         color: SLACK_FAILURE,
-                        message: "파이프라인 실패"
+                        message: "KUBE-BE 파이프라인 실패"
                     )
                 }
                 success {
                     slackSend (
                         color: SLACK_SUCCESS,
-                        message: "파이프라인 성공"
+                        message: "KUBE-BE 파이프라인 성공"
                     )
                 }
             }
