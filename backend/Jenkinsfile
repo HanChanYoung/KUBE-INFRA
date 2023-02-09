@@ -234,8 +234,8 @@ pipeline {
                     // sh "ssh -o StrictHostKeyChecking=no ubuntu@172.16.65.68 'sudo docker rm -f backend-${env.BRANCH_NAME}'"
                     // sh "ssh -o StrictHostKeyChecking=no ubuntu@172.16.66.244 'sudo docker rm -f backend-${env.BRANCH_NAME}'"
                     // 최신 이미지 삭제
-                    // sh "ssh -o StrictHostKeyChecking=no ubuntu@172.16.65.68 'sudo docker rmi -f ${env.REGISTRY_BASE}/${env.REGISTRY_REPO}/backend-${env.BRANCH_NAME}:latest'"
-                    // sh "ssh -o StrictHostKeyChecking=no ubuntu@172.16.66.244 'sudo docker rmi -f ${env.REGISTRY_BASE}/${env.REGISTRY_REPO}/backend-${env.BRANCH_NAME}:latest'"
+                    sh "ssh -o StrictHostKeyChecking=no ubuntu@172.16.65.68 'sudo docker rmi -f ${env.REGISTRY_BASE}/${env.REGISTRY_REPO}/backend-${env.BRANCH_NAME}:latest'"
+                    sh "ssh -o StrictHostKeyChecking=no ubuntu@172.16.66.244 'sudo docker rmi -f ${env.REGISTRY_BASE}/${env.REGISTRY_REPO}/backend-${env.BRANCH_NAME}:latest'"
                     // 최신 이미지 PULL
                     sh "ssh -o StrictHostKeyChecking=no ubuntu@172.16.65.68 'sudo docker pull ${env.REGISTRY_BASE}/${env.REGISTRY_REPO}/backend-${env.BRANCH_NAME}:latest'"
                     sh "ssh -o StrictHostKeyChecking=no ubuntu@172.16.66.244 'sudo docker pull ${env.REGISTRY_BASE}/${env.REGISTRY_REPO}/backend-${env.BRANCH_NAME}:latest'"
