@@ -52,7 +52,7 @@ pipeline {
                 dir('') {
                 git credentialsId: 'kube-git',
                     branch: 'develop',
-                    url: 'http://172.16.65.40:9090/kube/infra.git'
+                    url: 'http://172.16.65.40:9090/kube/kube-infra.git'
                 }
                 stash includes: 'backend/Dockerfile',
                       name: 'docker'
