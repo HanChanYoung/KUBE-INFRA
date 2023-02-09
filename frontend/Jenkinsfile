@@ -88,6 +88,7 @@ pipeline {
 
             steps {
                 echo '>>> Build React App <<<'
+                sh 'apt-get install -y npm'
                 sh 'npm install --force'
                 sh 'DISABLE_ESLINT_PLUGIN=true npm run build'
             }
