@@ -82,11 +82,7 @@ pipeline {
         }
 
         stage('Build Spring Boot App') {
-            agent {
-                docker {
-                    image 'adoptopenjdk/openjdk11'
-                }
-            }
+            agent any
 
             steps {
                 echo '>>> Build Spring Boot App <<<'
