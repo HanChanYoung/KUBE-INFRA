@@ -57,7 +57,7 @@ pipeline {
                 echo '>>> Checkout React App <<<'
                 dir('') {
                 git credentialsId: 'kube-git',
-                    branch: 'FE/CAMP-43',
+                    branch: 'develop',
                     url: 'http://172.16.65.40:9090/kube/kube-fe.git'
                 }
 
