@@ -88,6 +88,7 @@ pipeline {
 
             steps {
                 echo '>>> Build React App <<<'
+                sh 'cd kube'
                 sh 'apt-get update'
                 sh 'apt-get install -y nodejs'
                 sh 'apt-get install -y npm'
