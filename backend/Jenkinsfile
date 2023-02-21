@@ -225,28 +225,58 @@ pipeline {
             }
         }
 
-        stage('Deploy') {
+        stage('Deploy WAS-1') {
             agent any
 
             steps {
                 sshagent(credentials: ['kube_key']) {
                     // 최신 컨테이너 삭제
                     sh "ssh -o StrictHostKeyChecking=no ubuntu@172.16.65.68 'sudo docker rm -f backend-${env.BRANCH_NAME}'"
-                    sh "ssh -o StrictHostKeyChecking=no ubuntu@172.16.66.244 'sudo docker rm -f backend-${env.BRANCH_NAME}'"
                     // 최신 이미지 삭제
                     sh "ssh -o StrictHostKeyChecking=no ubuntu@172.16.65.68 'sudo docker rmi -f ${env.REGISTRY_BASE}/${env.REGISTRY_REPO}/backend-${env.BRANCH_NAME}:latest'"
-                    sh "ssh -o StrictHostKeyChecking=no ubuntu@172.16.66.244 'sudo docker rmi -f ${env.REGISTRY_BASE}/${env.REGISTRY_REPO}/backend-${env.BRANCH_NAME}:latest'"
                     // 최신 이미지 PULL
                     sh "ssh -o StrictHostKeyChecking=no ubuntu@172.16.65.68 'sudo docker pull ${env.REGISTRY_BASE}/${env.REGISTRY_REPO}/backend-${env.BRANCH_NAME}:latest'"
-                    sh "ssh -o StrictHostKeyChecking=no ubuntu@172.16.66.244 'sudo docker pull ${env.REGISTRY_BASE}/${env.REGISTRY_REPO}/backend-${env.BRANCH_NAME}:latest'"
                     // 이미지 확인
                     sh "ssh -o StrictHostKeyChecking=no ubuntu@172.16.65.68 'sudo docker images'"
-                    sh "ssh -o StrictHostKeyChecking=no ubuntu@172.16.66.244 'sudo docker images'"
                     // 최신 이미지 RUN
                     sh "ssh -o StrictHostKeyChecking=no ubuntu@172.16.65.68 'sudo docker run -d --name backend-${env.BRANCH_NAME} -p 8081:8081 ${env.REGISTRY_BASE}/${env.REGISTRY_REPO}/backend-${env.BRANCH_NAME}:latest'"
-                    sh "ssh -o StrictHostKeyChecking=no ubuntu@172.16.66.244 'sudo docker run -d --name backend-${env.BRANCH_NAME} -p 8081:8081 ${env.REGISTRY_BASE}/${env.REGISTRY_REPO}/backend-${env.BRANCH_NAME}:latest'"
                     // 컨테이너 확인
                     sh "ssh -o StrictHostKeyChecking=no ubuntu@172.16.65.68 'sudo docker ps'"
+                    sh "sleel 10"
+                }
+            }
+
+            post {
+                failure {
+                    slackSend (
+                        color: SLACK_FAILURE,
+                        message: "WAS-1 배포 실패"
+                    )
+                }
+                success {
+                    slackSend (
+                        color: SLACK_SUCCESS,
+                        message: "WAS-1 배포 성공"
+                    )
+                }
+            }
+        }
+        stage('Deploy WAS-2') {
+            agent any
+
+            steps {
+                sshagent(credentials: ['kube_key']) {
+                    // 최신 컨테이너 삭제
+                    sh "ssh -o StrictHostKeyChecking=no ubuntu@172.16.66.244 'sudo docker rm -f backend-${env.BRANCH_NAME}'"
+                    // 최신 이미지 삭제
+                    sh "ssh -o StrictHostKeyChecking=no ubuntu@172.16.66.244 'sudo docker rmi -f ${env.REGISTRY_BASE}/${env.REGISTRY_REPO}/backend-${env.BRANCH_NAME}:latest'"
+                    // 최신 이미지 PULL
+                    sh "ssh -o StrictHostKeyChecking=no ubuntu@172.16.66.244 'sudo docker pull ${env.REGISTRY_BASE}/${env.REGISTRY_REPO}/backend-${env.BRANCH_NAME}:latest'"
+                    // 이미지 확인
+                    sh "ssh -o StrictHostKeyChecking=no ubuntu@172.16.66.244 'sudo docker images'"
+                    // 최신 이미지 RUN
+                    sh "ssh -o StrictHostKeyChecking=no ubuntu@172.16.66.244 'sudo docker run -d --name backend-${env.BRANCH_NAME} -p 8081:8081 ${env.REGISTRY_BASE}/${env.REGISTRY_REPO}/backend-${env.BRANCH_NAME}:latest'"
+                    // 컨테이너 확인
                     sh "ssh -o StrictHostKeyChecking=no ubuntu@172.16.66.244 'sudo docker ps'"
                 }
             }
@@ -255,13 +285,13 @@ pipeline {
                 failure {
                     slackSend (
                         color: SLACK_FAILURE,
-                        message: "배포 실패"
+                        message: "WAS-2 배포 실패"
                     )
                 }
                 success {
                     slackSend (
                         color: SLACK_SUCCESS,
-                        message: "배포 성공"
+                        message: "WAS-2 배포 성공"
                     )
                 }
             }
