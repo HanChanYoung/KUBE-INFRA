@@ -1,0 +1,323 @@
+pipeline {
+    agent any
+
+    options {
+        skipDefaultCheckout true
+    }
+
+    // 슬랙 메시지 색상 및 이미지 저장소의 주소 전역 변수로 지정
+    environment {
+        SLACK_SUCCESS = "#2C953C"
+        SLACK_UNSTABLE = "#FFFF00"
+        SLACK_FAILURE = "#F01717"
+        REGISTRY_BASE = "kube.kr-central-1.kcr.dev"
+        REGISTRY_REPO = "kube-docker"
+    }
+
+    stages {
+        stage('Initialized') {
+            agent any
+
+            steps {
+                echo '>>> Initialize Pipeline <<<'
+            }
+
+            post {
+                failure {
+                    slackSend (
+                        color: SLACK_FAILURE,
+                        message: "파이프라인 ${env.BUILD_TAG} 초기화 실패\n${env.BRANCH_NAME}\n${env.BUILD_URL}"
+                    )
+                }
+                success {
+                    slackSend (
+                        color: SLACK_SUCCESS,
+                        message: "파이프라인 ${env.BUILD_TAG} 초기화 성공\n${env.BRANCH_NAME}\n${env.BUILD_URL}"
+                    )
+                }
+            }
+
+        }
+
+        stage('Checkout') {
+            agent any
+
+            tools {
+                git 'Default'
+            }
+
+            steps {
+                echo '>>> Checkout Dockerfile <<<'
+                
+                dir('') {
+                git credentialsId: 'kube-git',
+                    branch: 'develop',
+                    url: 'http://172.16.65.40:9090/kube/kube-infra.git'
+                }
+                stash includes: 'backend/Dockerfile',
+                      name: 'docker'
+
+                echo '>>> Checkout Spring Boot App <<<'
+                dir('') {
+                git credentialsId: 'kube-git',
+                    branch: 'develop',
+                    url: 'http://172.16.65.40:9090/kube/kube-be.git'
+                }
+            }
+
+            post {
+                failure {
+                    slackSend (
+                        color: SLACK_FAILURE,
+                        message: "레포지토리 클론 실패"
+                    )
+                }
+                success {
+                    slackSend (
+                        color: SLACK_SUCCESS,
+                        message: "레포지토리 클론 성공"
+                    )
+                }
+            }
+        }
+
+        stage('Build Spring Boot App') {
+            agent any
+
+            steps {
+                echo '>>> Build Spring Boot App <<<'
+
+                sh './gradlew clean build'
+            }
+
+            post {
+                failure {
+                    slackSend (
+                        color: SLACK_FAILURE,
+                        message: "스프링 빌드 실패"
+                    )
+                }
+                success {
+                    slackSend (
+                        color: SLACK_SUCCESS,
+                        message: "스프링 빌드 성공"
+                    )
+
+                    stash includes: 'build/libs/*.jar',
+                          name: 'build'
+                }
+            }
+        }
+
+        stage('Build Docker Image') {
+            agent any
+
+            steps {
+                echo '>>> Build Docker Image <<<'
+
+                unstash 'docker'
+                unstash 'build'
+                sh 'mv backend/Dockerfile ./'
+                sh "docker build -t backend-${env.BRANCH_NAME} ./"
+            }
+
+            post {
+                failure {
+                    slackSend (
+                        color: SLACK_FAILURE,
+                        message: "도커 이미지 빌드 실패"
+                    )
+                }
+                success {
+                    slackSend (
+                        color: SLACK_SUCCESS,
+                        message: "도커 이미지 빌드 성공"
+                    )
+                }
+            }
+        }
+
+        stage('Tag') {
+            agent any
+
+            steps {
+                echo '>>> Tag : Build Number <<<'
+                sh "docker tag backend-${env.BRANCH_NAME} ${env.REGISTRY_BASE}/${env.REGISTRY_REPO}/backend-${env.BRANCH_NAME}:${BUILD_NUMBER}"
+
+                echo '>>> Tag : Latest <<<'
+                sh "docker tag backend-${env.BRANCH_NAME} ${env.REGISTRY_BASE}/${env.REGISTRY_REPO}/backend-${env.BRANCH_NAME}:latest"
+            }
+
+            post {
+                failure {
+                    slackSend (
+                        color: SLACK_FAILURE,
+                        message: "도커 이미지 태깅 실패"
+                    )
+                }
+                success {
+                    slackSend (
+                        color: SLACK_SUCCESS,
+                        message: "도커 이미지 태깅 성공\n${env.REGISTRY_BASE}/${env.REGISTRY_REPO}/backend-${env.BRANCH_NAME}:${BUILD_NUMBER}"
+                    )
+                }
+            }
+        }
+
+        stage('Push') {
+            agent any
+
+            steps {
+                echo '>>> Login <<<'
+                withCredentials([[$class: 'UsernamePasswordMultiBinding',
+                     credentialsId: 'kube-docker',
+                     usernameVariable: 'DOCKER_USER_ID',
+                     passwordVariable: 'DOCKER_USER_PASSWORD']]) {
+                        sh "docker login ${REGISTRY_BASE} -u ${DOCKER_USER_ID} -p ${DOCKER_USER_PASSWORD}"
+                     }
+
+                 echo '>>> Push Image : Build Number <<<'
+                 sh "docker push ${env.REGISTRY_BASE}/${env.REGISTRY_REPO}/backend-${env.BRANCH_NAME}:${BUILD_NUMBER}"
+
+                 echo '>>> Push Image : Latest <<<'
+                 sh "docker push ${env.REGISTRY_BASE}/${env.REGISTRY_REPO}/backend-${env.BRANCH_NAME}:latest"
+            }
+
+            post {
+                failure {
+                    slackSend (
+                        color: SLACK_FAILURE,
+                        message: "도커 이미지 push 실패"
+                    )
+                }
+                success {
+                    slackSend (
+                        color: SLACK_SUCCESS,
+                        message: "도커 이미지 push 성공"
+                    )
+                }
+            }
+        }
+
+        stage('Clean') {
+            agent any
+
+            steps {
+                echo '>>> Clean <<<'
+
+                sh "docker rmi ${env.REGISTRY_BASE}/${env.REGISTRY_REPO}/backend-${env.BRANCH_NAME}:${BUILD_NUMBER}"
+                sh "docker rmi ${env.REGISTRY_BASE}/${env.REGISTRY_REPO}/backend-${env.BRANCH_NAME}:latest"
+            }
+
+            post {
+                failure {
+                    slackSend (
+                        color: SLACK_FAILURE,
+                        message: "이미지 제거 실패"
+                    )
+                }
+                success {
+                    slackSend (
+                        color: SLACK_SUCCESS,
+                        message: "이미지 제거 성공"
+                    )
+                }
+            }
+        }
+
+        stage('Deploy WAS-1') {
+            agent any
+
+            steps {
+                sshagent(credentials: ['kube_key']) {
+                    // 최신 컨테이너 삭제
+                    sh "ssh -o StrictHostKeyChecking=no ubuntu@172.16.65.68 'sudo docker rm -f backend-${env.BRANCH_NAME}'"
+                    // 최신 이미지 삭제
+                    sh "ssh -o StrictHostKeyChecking=no ubuntu@172.16.65.68 'sudo docker rmi -f ${env.REGISTRY_BASE}/${env.REGISTRY_REPO}/backend-${env.BRANCH_NAME}:latest'"
+                    // 최신 이미지 PULL
+                    sh "ssh -o StrictHostKeyChecking=no ubuntu@172.16.65.68 'sudo docker pull ${env.REGISTRY_BASE}/${env.REGISTRY_REPO}/backend-${env.BRANCH_NAME}:latest'"
+                    // 이미지 확인
+                    sh "ssh -o StrictHostKeyChecking=no ubuntu@172.16.65.68 'sudo docker images'"
+                    // 최신 이미지 RUN
+                    sh "ssh -o StrictHostKeyChecking=no ubuntu@172.16.65.68 'sudo docker run -d --name backend-${env.BRANCH_NAME} -p 8081:8081 ${env.REGISTRY_BASE}/${env.REGISTRY_REPO}/backend-${env.BRANCH_NAME}:latest'"
+                    // 컨테이너 확인
+                    sh "ssh -o StrictHostKeyChecking=no ubuntu@172.16.65.68 'sudo docker ps'"
+                    sh "sleep 60"
+                }
+            }
+
+            post {
+                failure {
+                    slackSend (
+                        color: SLACK_FAILURE,
+                        message: "WAS-1 배포 실패"
+                    )
+                }
+                success {
+                    slackSend (
+                        color: SLACK_SUCCESS,
+                        message: "WAS-1 배포 성공"
+                    )
+                }
+            }
+        }
+        stage('Deploy WAS-2') {
+            agent any
+
+            steps {
+                sshagent(credentials: ['kube_key']) {
+                    // 최신 컨테이너 삭제
+                    sh "ssh -o StrictHostKeyChecking=no ubuntu@172.16.66.244 'sudo docker rm -f backend-${env.BRANCH_NAME}'"
+                    // 최신 이미지 삭제
+                    sh "ssh -o StrictHostKeyChecking=no ubuntu@172.16.66.244 'sudo docker rmi -f ${env.REGISTRY_BASE}/${env.REGISTRY_REPO}/backend-${env.BRANCH_NAME}:latest'"
+                    // 최신 이미지 PULL
+                    sh "ssh -o StrictHostKeyChecking=no ubuntu@172.16.66.244 'sudo docker pull ${env.REGISTRY_BASE}/${env.REGISTRY_REPO}/backend-${env.BRANCH_NAME}:latest'"
+                    // 이미지 확인
+                    sh "ssh -o StrictHostKeyChecking=no ubuntu@172.16.66.244 'sudo docker images'"
+                    // 최신 이미지 RUN
+                    sh "ssh -o StrictHostKeyChecking=no ubuntu@172.16.66.244 'sudo docker run -d --name backend-${env.BRANCH_NAME} -p 8081:8081 ${env.REGISTRY_BASE}/${env.REGISTRY_REPO}/backend-${env.BRANCH_NAME}:latest'"
+                    // 컨테이너 확인
+                    sh "ssh -o StrictHostKeyChecking=no ubuntu@172.16.66.244 'sudo docker ps'"
+                }
+            }
+
+            post {
+                failure {
+                    slackSend (
+                        color: SLACK_FAILURE,
+                        message: "WAS-2 배포 실패"
+                    )
+                }
+                success {
+                    slackSend (
+                        color: SLACK_SUCCESS,
+                        message: "WAS-2 배포 성공"
+                    )
+                }
+            }
+        }
+
+        stage('End') {
+            agent any
+
+            steps {
+                echo '>>> End Pipeline <<<'
+            }
+
+            post {
+                failure {
+                    slackSend (
+                        color: SLACK_FAILURE,
+                        message: "KUBE-BE 파이프라인 실패"
+                    )
+                }
+                success {
+                    slackSend (
+                        color: SLACK_SUCCESS,
+                        message: "KUBE-BE 파이프라인 성공"
+                    )
+                }
+            }
+        }
+    }
+}
